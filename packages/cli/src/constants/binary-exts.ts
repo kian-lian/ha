@@ -1,0 +1,18 @@
+export const BINARY_EXTS = new Set([
+  ".ico",
+  ".png",
+  ".jpg",
+  ".jpeg",
+  ".gif",
+  ".webp",
+  ".avif",
+  ".woff",
+  ".woff2",
+  ".ttf",
+  ".otf",
+  ".eot",
+  ".zip",
+  ".tar",
+  ".gz",
+  ".pdf",
+])

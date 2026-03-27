@@ -1,18 +1,30 @@
 import { Command } from "commander"
 import fs from "fs"
-import ora from "ora"
 import path from "path"
 import prompts from "prompts"
-import { copyTemplate } from "../utils/copy-template.js"
-import { highlighter } from "../utils/highlighter.js"
+import { fetchTemplate } from "../utils/template.js"
 import { logger } from "../utils/logger.js"
 import { validateProjectName } from "../utils/validate.js"
 
 const TEMPLATES = [
-  { title: "Next.js App", value: "next-app", description: "Next.js 应用" },
-  { title: "React Library", value: "react-lib", description: "React 组件库" },
-  { title: "Node Service", value: "node-service", description: "Node.js 服务" },
+  {
+    title: "Next.js App",
+    description: "Next.js 应用（本地模板）",
+    repo: "local:next-app",
+  },
+  {
+    title: "Vite React",
+    description: "Vite + React + TypeScript（来自官方）",
+    repo: "github:vitejs/vite/packages/create-vite/template-react-ts#main",
+  },
 ]
+
+// prompts `select` expects choices with `title`, `description`, and `value`
+const TEMPLATE_CHOICES = TEMPLATES.map((t) => ({
+  title: t.title,
+  description: t.description,
+  value: t,
+}))
 
 export const createCommand = new Command("create")
   .description("Create a new project from template")
@@ -28,23 +40,24 @@ export const createCommand = new Command("create")
       })
 
       projectName = res.projectName
-      if (!projectName) process.exit(0) // 用户取消
+      if (!projectName) process.exit(0)
     } else {
       const valid = validateProjectName(projectName)
 
       if (valid !== true) {
         logger.error(valid)
+        process.exit(1)
       }
     }
 
-    const { template } = await prompts({
+    const { selected } = await prompts({
       type: "select",
-      name: "template",
+      name: "selected",
       message: "选择模板",
-      choices: TEMPLATES,
+      choices: TEMPLATE_CHOICES,
     })
 
-    if (!template) process.exit(0)
+    if (!selected) process.exit(0)
 
     const targetDir = path.resolve(process.cwd(), projectName)
 
@@ -53,17 +66,15 @@ export const createCommand = new Command("create")
       process.exit(1)
     }
 
-    const spinner = ora("正在创建项目...").start()
     try {
-      await copyTemplate(template, targetDir, { projectName })
-      spinner.succeed(highlighter.success("项目创建成功!"))
+      await fetchTemplate(selected.repo, targetDir, { projectName })
+      logger.success("项目创建成功!")
     } catch (err) {
-      spinner.fail(highlighter.error("创建失败"))
+      logger.error("创建失败")
       console.error(err)
       process.exit(1)
     }
 
-    // 5. 完成提示
     logger.log()
     logger.log(`  cd ${projectName}`)
     logger.log(`  pnpm install`)

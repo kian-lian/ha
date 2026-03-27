@@ -2,14 +2,14 @@
 
 ## 背景
 
-当前 `@mono/cli` 的 `create` 命令从本地 `templates/` 目录复制文件创建项目。随着模板种类增多，本地维护所有模板存在以下问题：
+当前 `@loom/cli` 的 `create` 命令从本地 `templates/` 目录复制文件创建项目。随着模板种类增多，本地维护所有模板存在以下问题：
 
 - CLI 包体积随模板数量线性增长
 - 模板更新需要发新版 CLI
 - 无法复用官方框架提供的高质量示例模板
 
 需要支持从远程 Git 仓库拉取模板，同时保留本地模板能力。
-
+®
 ## 方案选型
 
 | 方案 | 库 | 代表项目 | 优缺点 |
@@ -58,7 +58,7 @@ const TEMPLATES: TemplateConfig[] = [
     title: "Custom Template",
     value: "custom",
     description: "团队自定义模板",
-    repo: "github:your-org/mono-templates/custom#main",
+    repo: "github:your-org/loom-templates/custom#main",
   },
   {
     title: "Next.js App (本地)",
@@ -89,6 +89,17 @@ const TEMPLATES: TemplateConfig[] = [
 
 ```ts
 import { downloadTemplate as gigetDownload } from "giget"
+import ora from "ora"
+
+const SKIP_DIRS = new Set([
+  "node_modules",
+  ".next",
+  ".git",
+  "dist",
+  "build",
+  ".turbo",
+  ".cache",
+])
 
 // 统一入口：根据 repo 前缀决定走本地还是远程
 export async function fetchTemplate(
@@ -102,10 +113,39 @@ export async function fetchTemplate(
   }
 
   // 远程下载
-  await gigetDownload(repo, { dir: targetDir, force: false })
+  const spinner = ora("正在下载模板...").start()
+  try {
+    await gigetDownload(repo, { dir: targetDir, force: false })
+    spinner.succeed("模板下载完成")
+  } catch (error: any) {
+    spinner.fail("模板下载失败")
+
+    // 错误处理
+    if (error.statusCode === 404) {
+      throw new Error(`模板仓库不存在: ${repo}`)
+    }
+    if (error.statusCode === 403) {
+      throw new Error(`GitHub API 限流，请稍后重试或设置 GITHUB_TOKEN 环境变量`)
+    }
+    if (error.code === "ENOTFOUND" || error.code === "ETIMEDOUT") {
+      throw new Error(`网络连接失败，请检查网络或使用本地模板`)
+    }
+    throw error
+  }
+
+  // 验证模板
+  await validateTemplate(targetDir)
 
   // 下载完成后做变量替换
   replaceInDir(targetDir, options)
+}
+
+// 验证模板结构
+async function validateTemplate(dir: string) {
+  const pkgPath = path.join(dir, "package.json")
+  if (!fs.existsSync(pkgPath)) {
+    throw new Error("模板无效：缺少 package.json 文件")
+  }
 }
 
 // 递归替换目录内文件中的模板变量
@@ -128,10 +168,32 @@ function replaceInDir(dir: string, options: CopyOptions) {
 
 ### 3. `packages/cli/src/commands/create.ts`
 
-- `TEMPLATES` 增加 `repo` 字段
-- 调用改为 `fetchTemplate(selected.repo, targetDir, { projectName })`
-- spinner 文案改为 `正在下载模板...`
-- 增加网络错误提示：`无法下载模板，请检查网络连接`
+修改模板配置和调用逻辑：
+
+```ts
+const TEMPLATES: TemplateConfig[] = [
+  {
+    title: "Next.js App",
+    value: "next-app",
+    description: "Next.js 应用（本地模板）",
+    repo: "local:next-app",
+  },
+  {
+    title: "Vite React",
+    value: "vite-react",
+    description: "Vite + React + TypeScript（来自官方）",
+    repo: "github:vitejs/vite/packages/create-vite/template-react-ts#main",
+  },
+]
+
+// 调用改为
+await fetchTemplate(selected.repo, targetDir, { projectName })
+```
+
+错误处理已在 `fetchTemplate()` 中统一处理，包括：
+- 404 错误：模板仓库不存在
+- 403 错误：GitHub API 限流
+- 网络错误：连接失败或超时
 
 ## 不做的事
 
@@ -140,11 +202,29 @@ function replaceInDir(dir: string, options: CopyOptions) {
 - **不删除本地 templates 目录**：通过 `local:` 前缀向后兼容
 - **不加 GitHub Token 配置**：giget 默认走 tarball 下载，不需要认证（公开仓库）
 
+## 实现要点总结
+
+### 核心改动
+1. **新增依赖**：`giget ^2.0.0`
+2. **统一入口**：`fetchTemplate()` 根据 `local:` 前缀分发本地/远程逻辑
+3. **错误处理**：404/403/网络错误的友好提示
+4. **模板验证**：检查 `package.json` 是否存在
+5. **进度反馈**：使用 `ora` spinner 显示下载状态
+
+### 关键常量
+```ts
+const SKIP_DIRS = new Set([
+  "node_modules", ".next", ".git",
+  "dist", "build", ".turbo", ".cache"
+])
+```
+
 ## 后续可扩展
 
-- 支持从 `.monorc.json` 读取自定义模板列表
 - 支持 `--template` 参数直接指定 giget 格式的远程地址
-- 支持 GitHub Token 环境变量以访问私有仓库
+- 支持从 `~/.loom/templates.json` 读取自定义模板列表
+- 支持 `GITHUB_TOKEN` 环境变量以访问私有仓库
+- 扩展变量替换（`{{author}}`、`{{description}}` 等）
 - 支持模板 postinstall 钩子（如自动 `pnpm install`）
 
 ## 验证步骤
