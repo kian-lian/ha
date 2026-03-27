@@ -20,7 +20,7 @@ importers:
 
   apps/docs:
     dependencies:
-      '@mono/ui':
+      '@loom/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       next:
@@ -33,10 +33,10 @@ importers:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
     devDependencies:
-      '@mono/eslint-config':
+      '@loom/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@mono/typescript-config':
+      '@loom/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@types/node':
@@ -57,7 +57,7 @@ importers:
 
   apps/web:
     dependencies:
-      '@mono/ui':
+      '@loom/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       next:
@@ -70,10 +70,10 @@ importers:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
     devDependencies:
-      '@mono/eslint-config':
+      '@loom/eslint-config':
         specifier: workspace:*
         version: link:../../packages/eslint-config
-      '@mono/typescript-config':
+      '@loom/typescript-config':
         specifier: workspace:*
         version: link:../../packages/typescript-config
       '@types/node':
@@ -116,7 +116,7 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
-      '@mono/typescript-config':
+      '@loom/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/node':
@@ -176,10 +176,10 @@ importers:
         specifier: ^19.2.0
         version: 19.2.0(react@19.2.0)
     devDependencies:
-      '@mono/eslint-config':
+      '@loom/eslint-config':
         specifier: workspace:*
         version: link:../eslint-config
-      '@mono/typescript-config':
+      '@loom/typescript-config':
         specifier: workspace:*
         version: link:../typescript-config
       '@types/node':

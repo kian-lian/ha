@@ -1,10 +1,10 @@
 {
-  "name": "@mono/cli",
+  "name": "@loom/cli",
   "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "mono-cli": "./dist/index.js"
+    "loom-cli": "./dist/index.js"
   },
   "scripts": {
     "build": "tsc",
@@ -12,7 +12,7 @@
     "check-types": "tsc --noEmit"
   },
   "devDependencies": {
-    "@mono/typescript-config": "workspace:*",
+    "@loom/typescript-config": "workspace:*",
     "@types/node": "^22",
     "@types/prompts": "^2.4.9",
     "typescript": "5.9.2"

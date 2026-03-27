@@ -1,5 +1,5 @@
 {
-  "extends": "@mono/typescript-config/react-library.json",
+  "extends": "@loom/typescript-config/react-library.json",
   "compilerOptions": {
     "outDir": "dist",
     "strictNullChecks": true

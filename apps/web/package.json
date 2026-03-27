@@ -11,14 +11,14 @@
     "check-types": "next typegen && tsc --noEmit"
   },
   "dependencies": {
-    "@mono/ui": "workspace:*",
+    "@loom/ui": "workspace:*",
     "next": "16.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
-    "@mono/eslint-config": "workspace:*",
-    "@mono/typescript-config": "workspace:*",
+    "@loom/eslint-config": "workspace:*",
+    "@loom/typescript-config": "workspace:*",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
