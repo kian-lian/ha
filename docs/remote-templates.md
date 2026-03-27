@@ -2,7 +2,13 @@
 
 ## 背景
 
-当前 `@loom/cli` 的 `create` 命令从本地 `templates/` 目录复制文件创建项目。随着模板种类增多，本地维护所有模板存在以下问题：
+当前 `@loom/cli` 的 `create` 命令采用三条创建路径：
+
+- `next-cli:` 前缀委托官方 `create-next-app`
+- 远程仓库走 `giget`
+- `local:` 前缀继续走本地模板复制
+
+随着模板种类增多，本地维护所有模板存在以下问题：
 
 - CLI 包体积随模板数量线性增长
 - 模板更新需要发新版 CLI
@@ -22,7 +28,7 @@
 
 ## 模板配置设计
 
-采用混合模式：每个模板独立配置来源，支持远程仓库和本地目录两种来源。
+采用混合模式：每个模板独立配置来源，支持官方 CLI 委托、远程仓库和本地目录三种来源。
 
 ```ts
 interface TemplateConfig {
@@ -36,6 +42,7 @@ interface TemplateConfig {
 `repo` 字段格式：
 
 - **远程仓库**：`github:owner/repo/subdir#ref`（giget 标准格式）
+- **官方 CLI**：`next-cli:create-next-app@version`
 - **本地目录**：`local:模板目录名`（保持向后兼容）
 
 示例：
@@ -45,8 +52,8 @@ const TEMPLATES: TemplateConfig[] = [
   {
     title: "Next.js App",
     value: "next-app",
-    description: "Next.js 应用（来自官方示例）",
-    repo: "github:vercel/next.js/examples/hello-world#canary",
+    description: "Next.js 应用（委托官方 create-next-app）",
+    repo: "next-cli:create-next-app@16.2.1",
   },
   {
     title: "Vite React",
@@ -83,25 +90,17 @@ const TEMPLATES: TemplateConfig[] = [
   }
 ```
 
-### 2. `packages/cli/src/utils/copy-template.ts`
+### 2. `packages/cli/src/utils/template.ts`
 
-新增远程下载函数，保留原有本地复制逻辑：
+统一入口分发本地复制、Next.js 官方 CLI 委托和远程下载：
 
 ```ts
 import { downloadTemplate as gigetDownload } from "giget"
 import ora from "ora"
+import { delegateToNextCli } from "./official-cli.js"
 
-const SKIP_DIRS = new Set([
-  "node_modules",
-  ".next",
-  ".git",
-  "dist",
-  "build",
-  ".turbo",
-  ".cache",
-])
+const NEXT_CLI_PREFIX = "next-cli:"
 
-// 统一入口：根据 repo 前缀决定走本地还是远程
 export async function fetchTemplate(
   repo: string,
   targetDir: string,
@@ -109,7 +108,18 @@ export async function fetchTemplate(
 ) {
   if (repo.startsWith("local:")) {
     const templateName = repo.slice("local:".length)
-    return copyTemplate(templateName, targetDir, options)
+    copyTemplate(templateName, targetDir, options)
+    return { dependenciesInstalled: false }
+  }
+
+  if (repo.startsWith(NEXT_CLI_PREFIX)) {
+    const packageSpec = repo.slice(NEXT_CLI_PREFIX.length)
+    await delegateToNextCli({
+      packageManager: options.packageManager ?? "pnpm",
+      packageSpec,
+      targetDir,
+    })
+    return { dependenciesInstalled: true }
   }
 
   // 远程下载
@@ -134,60 +144,45 @@ export async function fetchTemplate(
   }
 
   // 验证模板
-  await validateTemplate(targetDir)
-
-  // 下载完成后做变量替换
+  validateTemplate(targetDir)
   replaceInDir(targetDir, options)
-}
-
-// 验证模板结构
-async function validateTemplate(dir: string) {
-  const pkgPath = path.join(dir, "package.json")
-  if (!fs.existsSync(pkgPath)) {
-    throw new Error("模板无效：缺少 package.json 文件")
-  }
-}
-
-// 递归替换目录内文件中的模板变量
-function replaceInDir(dir: string, options: CopyOptions) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const fullPath = path.join(dir, entry.name)
-    if (entry.isDirectory()) {
-      if (SKIP_DIRS.has(entry.name)) continue
-      replaceInDir(fullPath, options)
-    } else {
-      const content = fs.readFileSync(fullPath, "utf-8")
-      const replaced = content.replaceAll("{{projectName}}", options.projectName)
-      if (replaced !== content) {
-        fs.writeFileSync(fullPath, replaced)
-      }
-    }
-  }
+  return { dependenciesInstalled: false }
 }
 ```
 
-### 3. `packages/cli/src/commands/create.ts`
+### 3. `packages/cli/src/utils/official-cli.ts`
 
-修改模板配置和调用逻辑：
+Next.js 模板单独走官方 CLI 委托，命令参数模仿 shadcn 的 `createProject()` 分支：
 
 ```ts
-const TEMPLATES: TemplateConfig[] = [
-  {
-    title: "Next.js App",
-    value: "next-app",
-    description: "Next.js 应用（本地模板）",
-    repo: "local:next-app",
-  },
-  {
-    title: "Vite React",
-    value: "vite-react",
-    description: "Vite + React + TypeScript（来自官方）",
-    repo: "github:vitejs/vite/packages/create-vite/template-react-ts#main",
-  },
-]
+export function buildCreateNextAppArgs(options: CreateNextAppOptions) {
+  return [
+    options.packageSpec,
+    options.targetDir,
+    "--typescript",
+    "--eslint",
+    "--tailwind",
+    "--app",
+    "--no-src-dir",
+    "--no-import-alias",
+    `--use-${options.packageManager}`,
+    "--turbopack",
+    "--skip-install",
+    "--yes",
+  ]
+}
+```
 
-// 调用改为
-await fetchTemplate(selected.repo, targetDir, { projectName })
+之所以显式加 `--skip-install`，是为了避免在 pnpm workspace 子目录里执行 `create-next-app` 时被 pnpm 自动提升成整个 workspace 安装。脚手架完成后，再由 CLI 自己在目标目录执行安装：
+
+```ts
+export function buildInstallArgs(packageManager: PackageManager) {
+  if (packageManager === "pnpm") {
+    return ["install", "--ignore-workspace"]
+  }
+
+  return ["install"]
+}
 ```
 
 错误处理已在 `fetchTemplate()` 中统一处理，包括：
@@ -206,10 +201,11 @@ await fetchTemplate(selected.repo, targetDir, { projectName })
 
 ### 核心改动
 1. **新增依赖**：`giget ^2.0.0`
-2. **统一入口**：`fetchTemplate()` 根据 `local:` 前缀分发本地/远程逻辑
+2. **统一入口**：`fetchTemplate()` 根据 `local:`、`next-cli:` 前缀分发本地复制、官方 CLI 委托、远程下载
 3. **错误处理**：404/403/网络错误的友好提示
-4. **模板验证**：检查 `package.json` 是否存在
-5. **进度反馈**：使用 `ora` spinner 显示下载状态
+4. **Next.js 特例**：`next-cli:create-next-app@16.2.1` 走 `npx create-next-app@16.2.1`
+5. **模板验证**：远程模板检查 `package.json` 是否存在
+6. **进度反馈**：远程下载使用 `ora` spinner，官方 CLI 直接透传输出
 
 ### 关键常量
 ```ts
@@ -236,13 +232,13 @@ cd packages/cli && pnpm install
 # 2. 构建
 pnpm build
 
-# 3. 测试远程模板
+# 3. 测试 Next.js 官方 CLI 委托
 node dist/index.js create test-remote
-# 选择 Next.js App → 应从 GitHub 下载
+# 选择 Next.js App → 应调用 create-next-app
 
-# 4. 测试本地模板
+# 4. 测试远程模板
 node dist/index.js create test-local
-# 选择本地模板 → 应从 templates/ 复制
+# 选择 Vite React → 应从 GitHub 下载
 
 # 5. 验证目标目录内容正确
 ls test-remote/

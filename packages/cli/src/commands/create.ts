@@ -4,13 +4,14 @@ import path from "path"
 import prompts from "prompts"
 import { fetchTemplate } from "../utils/template.js"
 import { logger } from "../utils/logger.js"
+import { detectPackageManager } from "../utils/package-manager.js"
 import { validateProjectName } from "../utils/validate.js"
 
 const TEMPLATES = [
   {
     title: "Next.js App",
-    description: "Next.js 应用（本地模板）",
-    repo: "local:next-app",
+    description: "Next.js 应用（委托官方 create-next-app）",
+    repo: "next-cli:create-next-app@16.2.1",
   },
   {
     title: "Vite React",
@@ -67,17 +68,22 @@ export const createCommand = new Command("create")
     }
 
     try {
-      await fetchTemplate(selected.repo, targetDir, { projectName })
+      const packageManager = detectPackageManager()
+      const result = await fetchTemplate(selected.repo, targetDir, {
+        projectName,
+        packageManager,
+      })
       logger.success("项目创建成功!")
+      logger.log()
+      logger.log(`  cd ${projectName}`)
+      if (!result.dependenciesInstalled) {
+        logger.log(`  ${packageManager} install`)
+      }
+      logger.log(`  ${packageManager} dev`)
+      logger.log()
     } catch (err) {
       logger.error("创建失败")
       console.error(err)
       process.exit(1)
     }
-
-    logger.log()
-    logger.log(`  cd ${projectName}`)
-    logger.log(`  pnpm install`)
-    logger.log(`  pnpm dev`)
-    logger.log()
   })
