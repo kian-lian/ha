@@ -3,6 +3,7 @@ import type { PackageManager } from "./package-manager.js"
 import { logger } from "./logger.js"
 
 const NPX_COMMAND = process.platform === "win32" ? "npx.cmd" : "npx"
+// 不同包管理器在不同平台下的可执行文件名不一致，这里统一做一层映射。
 const PACKAGE_MANAGER_COMMANDS: Record<PackageManager, string> = {
   pnpm: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
   npm: process.platform === "win32" ? "npm.cmd" : "npm",
@@ -43,23 +44,37 @@ export function buildCreateNextAppArgs(options: CreateNextAppOptions): string[] 
 
 export function buildInstallArgs(packageManager: PackageManager): string[] {
   if (packageManager === "pnpm") {
+    // CLI 运行在 monorepo 根目录时，避免新项目被父级 workspace 误吸纳。
     return ["install", "--ignore-workspace"]
   }
 
   return ["install"]
 }
 
+export async function installProjectDependencies(
+  targetDir: string,
+  packageManager: PackageManager,
+  commandRunner: CommandRunner = runCommand,
+) {
+  logger.info("正在安装项目依赖...")
+  await commandRunner(
+    PACKAGE_MANAGER_COMMANDS[packageManager],
+    buildInstallArgs(packageManager),
+    { cwd: targetDir },
+  )
+}
+
 export async function delegateToNextCli(
   options: CreateNextAppOptions,
   commandRunner: CommandRunner = runCommand,
 ) {
+  // 保留“委托官方脚手架”的能力，方便后续单独挂成某个模板实现。
   logger.info("正在委托 Next.js 官方 CLI 创建项目...")
   await commandRunner(NPX_COMMAND, buildCreateNextAppArgs(options))
-  logger.info("正在安装项目依赖...")
-  await commandRunner(
-    PACKAGE_MANAGER_COMMANDS[options.packageManager],
-    buildInstallArgs(options.packageManager),
-    { cwd: options.targetDir },
+  await installProjectDependencies(
+    options.targetDir,
+    options.packageManager,
+    commandRunner,
   )
 }
 
@@ -73,6 +88,7 @@ async function runCommand(
   await new Promise<void>((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options?.cwd,
+      // 直接复用当前终端输出，方便用户看到脚手架和安装过程。
       stdio: "inherit",
     })
 
