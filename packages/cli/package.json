@@ -10,7 +10,7 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "check-types": "tsc --noEmit",
-    "test": "pnpm run build && node --test dist/**/*.test.js"
+    "test": "pnpm run build && node --test \"dist/**/*.test.js\" \"dist/**/__test__/**/*.test.js\""
   },
   "devDependencies": {
     "@loom/typescript-config": "workspace:*",
