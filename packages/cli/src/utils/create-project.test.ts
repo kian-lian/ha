@@ -118,3 +118,87 @@ test("createProject rejects unknown templates", async () => {
     /未知模板: missing/,
   )
 })
+
+test("createProject writes loom.json for scaffolded React TypeScript projects", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
+  const projectPath = path.join(tmpRoot, "acme-web")
+
+  const registry = {
+    next: createTemplate({
+      name: "next",
+      title: "Next",
+      description: "Next template",
+      defaultProjectName: "next-app",
+      repo: "local:next",
+      scaffold: async (options) => {
+        fs.mkdirSync(options.projectPath, { recursive: true })
+        fs.writeFileSync(
+          path.join(options.projectPath, "package.json"),
+          JSON.stringify(
+            {
+              name: options.projectName,
+              private: true,
+              dependencies: {
+                react: "^19.0.0",
+                "react-dom": "^19.0.0",
+              },
+            },
+            null,
+            2,
+          ),
+        )
+        fs.writeFileSync(
+          path.join(options.projectPath, "tsconfig.json"),
+          JSON.stringify(
+            {
+              compilerOptions: {
+                paths: {
+                  "@/*": ["./*"],
+                },
+              },
+            },
+            null,
+            2,
+          ),
+        )
+
+        return { dependenciesInstalled: true }
+      },
+    }),
+  }
+
+  try {
+    const result = await createProject(
+      {
+        cwd: tmpRoot,
+        name: "acme-web",
+        packageManager: "pnpm",
+        yes: true,
+      },
+      { templateRegistry: registry },
+    )
+
+    assert.equal(result.projectPath, projectPath)
+
+    const loomConfig = JSON.parse(
+      fs.readFileSync(path.join(projectPath, "loom.json"), "utf-8"),
+    )
+
+    assert.deepEqual(loomConfig, {
+      paths: {
+        hooks: "hooks",
+      },
+      aliases: {
+        hooks: "@/hooks",
+      },
+      registries: {
+        default: "@loom",
+        items: {
+          "@loom": "http://localhost:3001/r/{name}.json",
+        },
+      },
+    })
+  } finally {
+    fs.rmSync(tmpRoot, { force: true, recursive: true })
+  }
+})

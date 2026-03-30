@@ -2,6 +2,12 @@ import fs from "node:fs"
 import path from "node:path"
 import prompts from "prompts"
 import {
+  createDefaultLoomConfig,
+  hasLoomConfig,
+  isReactTypeScriptProject,
+  writeLoomConfig,
+} from "../config/index.js"
+import {
   getTemplate,
   getTemplateChoices,
   templates,
@@ -107,6 +113,11 @@ export async function createProject(
     projectName,
     projectPath,
   })
+
+  // 对 React + TypeScript 模板自动补一份 loom.json，用户创建后可以直接执行 add。
+  if (isReactTypeScriptProject(projectPath) && !hasLoomConfig(projectPath)) {
+    writeLoomConfig(projectPath, createDefaultLoomConfig(projectPath))
+  }
 
   return {
     dependenciesInstalled: result.dependenciesInstalled,

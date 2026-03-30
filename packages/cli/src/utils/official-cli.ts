@@ -51,6 +51,28 @@ export function buildInstallArgs(packageManager: PackageManager): string[] {
   return ["install"]
 }
 
+export function buildAddDependencyArgs(
+  packageManager: PackageManager,
+  packages: string[],
+  options?: {
+    dev?: boolean
+  },
+): string[] {
+  const devFlag = options?.dev
+
+  if (packageManager === "npm") {
+    return devFlag
+      ? ["install", "--save-dev", ...packages]
+      : ["install", ...packages]
+  }
+
+  if (packageManager === "yarn" || packageManager === "bun") {
+    return devFlag ? ["add", "--dev", ...packages] : ["add", ...packages]
+  }
+
+  return devFlag ? ["add", "--save-dev", ...packages] : ["add", ...packages]
+}
+
 export async function installProjectDependencies(
   targetDir: string,
   packageManager: PackageManager,
@@ -60,6 +82,30 @@ export async function installProjectDependencies(
   await commandRunner(
     PACKAGE_MANAGER_COMMANDS[packageManager],
     buildInstallArgs(packageManager),
+    { cwd: targetDir },
+  )
+}
+
+export async function installPackages(
+  targetDir: string,
+  packageManager: PackageManager,
+  packages: string[],
+  options?: {
+    dev?: boolean
+  },
+  commandRunner: CommandRunner = runCommand,
+) {
+  if (packages.length === 0) {
+    return
+  }
+
+  logger.info(
+    options?.dev ? "正在安装开发依赖..." : "正在安装项目运行依赖...",
+  )
+
+  await commandRunner(
+    PACKAGE_MANAGER_COMMANDS[packageManager],
+    buildAddDependencyArgs(packageManager, packages, options),
     { cwd: targetDir },
   )
 }

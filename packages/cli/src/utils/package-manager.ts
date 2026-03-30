@@ -1,6 +1,15 @@
+import fs from "node:fs"
+import path from "node:path"
+
 export type PackageManager = "pnpm" | "npm" | "yarn" | "bun"
 
 const PACKAGE_MANAGERS: PackageManager[] = ["pnpm", "npm", "yarn", "bun"]
+const LOCK_FILE_CANDIDATES: Record<PackageManager, string[]> = {
+  pnpm: ["pnpm-lock.yaml"],
+  npm: ["package-lock.json"],
+  yarn: ["yarn.lock"],
+  bun: ["bun.lock", "bun.lockb"],
+}
 
 export function detectPackageManager(
   userAgent = process.env.npm_config_user_agent,
@@ -14,4 +23,22 @@ export function detectPackageManager(
   }
 
   return "pnpm"
+}
+
+export function detectPackageManagerForProject(
+  cwd: string,
+  userAgent = process.env.npm_config_user_agent,
+): PackageManager {
+  for (const packageManager of PACKAGE_MANAGERS) {
+    const lockFiles = LOCK_FILE_CANDIDATES[packageManager]
+    const hasLockFile = lockFiles.some((lockFile) =>
+      fs.existsSync(path.resolve(cwd, lockFile)),
+    )
+
+    if (hasLockFile) {
+      return packageManager
+    }
+  }
+
+  return detectPackageManager(userAgent)
 }

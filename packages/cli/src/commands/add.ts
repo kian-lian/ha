@@ -1,7 +1,9 @@
 import { Command } from "commander"
 import { addItems } from "../add/add-items.js"
+import { installRegistryItemDependencies } from "../add/install-dependencies.js"
 import { installRegistryItems } from "../add/install-items.js"
 import { logger } from "../utils/logger.js"
+import { detectPackageManagerForProject } from "../utils/package-manager.js"
 
 export const addCommand = new Command("add")
   .description("Add hooks from the Loom registry")
@@ -33,6 +35,13 @@ export const addCommand = new Command("add")
           items: parsed.items,
           overwrite: opts?.overwrite,
         })
+        const packageManager = detectPackageManagerForProject(cwd)
+
+        await installRegistryItemDependencies({
+          cwd,
+          items: parsed.items,
+          packageManager,
+        })
 
         logger.success("hooks 添加成功!")
         logger.log()
@@ -51,6 +60,8 @@ export const addCommand = new Command("add")
         for (const filePath of installed.files) {
           logger.log(`    - ${filePath}`)
         }
+
+        logger.log(`  包管理器: ${packageManager}`)
 
         logger.log()
       } catch (error) {
