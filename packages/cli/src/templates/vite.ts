@@ -25,8 +25,8 @@ export async function scaffoldViteApp(
 
 export const viteTemplate = createTemplate({
   name: "vite",
-  title: "Vite React",
-  description: "Vite + React + TypeScript",
+  title: "Vite",
+  description: "Vite App",
   defaultProjectName: "vite-app",
   scaffold: scaffoldViteApp,
 })

@@ -56,34 +56,45 @@ export async function createProject(
     projectName =
       projectName ?? getTemplateDefaultProjectName(templateRegistry, templateName)
   } else {
-    const answers = await prompt([
-      {
-        type: templateName ? null : "select",
-        name: "template",
-        message: "选择模板",
-        choices: getTemplateChoices(templateRegistry),
-        initial: 0,
-      },
-      {
-        type: projectName ? null : "text",
-        name: "projectName",
-        message: "项目名称:",
-        initial:
-          projectName ??
-          (templateName
-            ? getTemplateDefaultProjectName(templateRegistry, templateName)
-            : getTemplateDefaultProjectName(templateRegistry, defaultTemplateName)),
-        validate: (value: string) => validateProjectName(value),
-      },
-    ], {
-      onCancel: () => {
-        throw new Error("已取消创建项目")
-      },
-    })
+    if (!templateName) {
+      const templateAnswer = await prompt(
+        {
+          type: "select",
+          name: "template",
+          message: "选择模板",
+          choices: getTemplateChoices(templateRegistry),
+          initial: 0,
+        },
+        {
+          onCancel: () => {
+            throw new Error("已取消创建项目")
+          },
+        },
+      )
 
-    // 交互模式允许“部分参数由命令行传入，剩余部分走提示补全”。
-    templateName = templateName ?? answers.template ?? defaultTemplateName
-    projectName = projectName ?? answers.projectName
+      templateName = templateAnswer.template ?? defaultTemplateName
+    }
+
+    if (!projectName) {
+      const projectNameAnswer = await prompt(
+        {
+          type: "text",
+          name: "projectName",
+          message: "项目名称:",
+          initial:
+            getTemplateDefaultProjectName(templateRegistry, templateName) ??
+            getTemplateDefaultProjectName(templateRegistry, defaultTemplateName),
+          validate: (value: string) => validateProjectName(value),
+        },
+        {
+          onCancel: () => {
+            throw new Error("已取消创建项目")
+          },
+        },
+      )
+
+      projectName = projectNameAnswer.projectName
+    }
   }
 
   if (!templateName) {

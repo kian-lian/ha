@@ -112,6 +112,61 @@ test("createProject uses default template defaults in yes mode", async () => {
   }
 })
 
+test("createProject uses the selected template default project name in interactive mode", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
+
+  const registry = {
+    next: createTemplate({
+      name: "next",
+      title: "Next",
+      description: "Next template",
+      defaultProjectName: "next-app",
+      repo: "local:next",
+      scaffold: async (options) => ({ dependenciesInstalled: true }),
+    }),
+    vite: createTemplate({
+      name: "vite",
+      title: "Vite",
+      description: "Vite template",
+      defaultProjectName: "vite-app",
+      repo: "local:vite",
+      scaffold: async (options) => ({ dependenciesInstalled: true }),
+    }),
+  }
+
+  const prompt = Object.assign(
+    async (questions: Parameters<typeof prompts>[0]) => {
+      assert.ok(!Array.isArray(questions))
+
+      if (questions.name === "template") {
+        return { template: "vite" }
+      }
+
+      return { projectName: questions.initial }
+    },
+    prompts,
+  ) as typeof prompts
+
+  try {
+    const result = await createProject(
+      {
+        cwd: tmpRoot,
+        packageManager: "pnpm",
+      },
+      {
+        prompt,
+        templateRegistry: registry,
+      },
+    )
+
+    assert.equal(result.template, "vite")
+    assert.equal(result.projectName, "vite-app")
+    assert.equal(result.projectPath, path.resolve(tmpRoot, "vite-app"))
+  } finally {
+    fs.rmSync(tmpRoot, { force: true, recursive: true })
+  }
+})
+
 test("createProject rejects unknown templates", async () => {
   await assert.rejects(
     () =>
