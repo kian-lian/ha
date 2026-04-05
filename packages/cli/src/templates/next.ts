@@ -38,7 +38,7 @@ export async function scaffoldNextApp(
 export const nextTemplate = createTemplate({
   name: "next",
   title: "Next.js App",
-  description: "Next.js 应用（委托官方 create-next-app）",
+  description: "Next.js App",
   defaultProjectName: "next-app",
   scaffold: scaffoldNextApp,
 })

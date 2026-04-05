@@ -4,9 +4,11 @@ import { logger } from "./logger.js"
 import {
   buildAddDependencyArgs,
   buildCreateNextAppArgs,
+  buildCreateViteCommand,
   buildInstallArgs,
   type CommandRunner,
   delegateToNextCli,
+  delegateToViteCli,
   installPackages,
 } from "./official-cli.js"
 
@@ -48,6 +50,40 @@ test("buildCreateNextAppArgs preserves official create-next-app prompts by defau
     "--use-pnpm",
     "--skip-install",
   ])
+})
+
+test("buildCreateViteCommand preserves official create-vite prompts by default", () => {
+  const invocation = buildCreateViteCommand({
+    packageManager: "pnpm",
+    targetDir: "/tmp/acme-web",
+    yes: false,
+  })
+
+  assert.deepEqual(invocation, {
+    command: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    args: ["create", "vite", "/tmp/acme-web"],
+  })
+})
+
+test("buildCreateViteCommand builds a non-interactive react-ts scaffold in yes mode", () => {
+  const invocation = buildCreateViteCommand({
+    packageManager: "npm",
+    targetDir: "/tmp/acme-web",
+    yes: true,
+  })
+
+  assert.deepEqual(invocation, {
+    command: process.platform === "win32" ? "npm.cmd" : "npm",
+    args: [
+      "create",
+      "vite@latest",
+      "/tmp/acme-web",
+      "--",
+      "--template",
+      "react-ts",
+      "--no-interactive",
+    ],
+  })
 })
 
 test("buildInstallArgs isolates pnpm installs from the parent workspace", () => {
@@ -157,6 +193,52 @@ test("delegateToNextCli scaffolds first and then installs dependencies in the ta
       "--turbopack",
       "--skip-install",
       "--yes",
+    ],
+    options: undefined,
+  })
+  assert.deepEqual(calls[1], {
+    command: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    args: ["install", "--ignore-workspace"],
+    options: { cwd: "/tmp/acme-web" },
+  })
+})
+
+test("delegateToViteCli scaffolds first and then installs dependencies in the target dir", async () => {
+  const calls: Array<{
+    command: string
+    args: string[]
+    options?: {
+      cwd?: string
+    }
+  }> = []
+
+  await delegateToViteCli(
+    {
+      packageManager: "pnpm",
+      targetDir: "/tmp/acme-web",
+      yes: true,
+    },
+    async (
+      command: string,
+      args: string[],
+      options?: {
+        cwd?: string
+      },
+    ) => {
+      calls.push({ command, args, options })
+    },
+  )
+
+  assert.equal(calls.length, 2)
+  assert.deepEqual(calls[0], {
+    command: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    args: [
+      "create",
+      "vite",
+      "/tmp/acme-web",
+      "--template",
+      "react-ts",
+      "--no-interactive",
     ],
     options: undefined,
   })

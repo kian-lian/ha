@@ -18,6 +18,12 @@ export interface CreateNextAppOptions {
   yes?: boolean
 }
 
+export interface CreateViteAppOptions {
+  packageManager: PackageManager
+  targetDir: string
+  yes?: boolean
+}
+
 export type CommandRunner = (
   command: string,
   args: string[],
@@ -59,6 +65,37 @@ export function buildInstallArgs(packageManager: PackageManager): string[] {
   }
 
   return ["install"]
+}
+
+export function buildCreateViteCommand(options: CreateViteAppOptions): {
+  args: string[]
+  command: string
+} {
+  const command = PACKAGE_MANAGER_COMMANDS[options.packageManager]
+
+  if (options.packageManager === "npm") {
+    const args = ["create", "vite@latest", options.targetDir]
+
+    if (!options.yes) {
+      return { args, command }
+    }
+
+    return {
+      args: [...args, "--", "--template", "react-ts", "--no-interactive"],
+      command,
+    }
+  }
+
+  const args = ["create", "vite", options.targetDir]
+
+  if (!options.yes) {
+    return { args, command }
+  }
+
+  return {
+    args: [...args, "--template", "react-ts", "--no-interactive"],
+    command,
+  }
 }
 
 export function buildAddDependencyArgs(
@@ -125,6 +162,19 @@ export async function delegateToNextCli(
   commandRunner: CommandRunner = runCommand,
 ) {
   await commandRunner(NPX_COMMAND, buildCreateNextAppArgs(options))
+  await installProjectDependencies(
+    options.targetDir,
+    options.packageManager,
+    commandRunner,
+  )
+}
+
+export async function delegateToViteCli(
+  options: CreateViteAppOptions,
+  commandRunner: CommandRunner = runCommand,
+) {
+  const invocation = buildCreateViteCommand(options)
+  await commandRunner(invocation.command, invocation.args)
   await installProjectDependencies(
     options.targetDir,
     options.packageManager,
