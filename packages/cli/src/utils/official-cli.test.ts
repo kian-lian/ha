@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import test from "node:test"
+import { logger } from "./logger.js"
 import {
   buildAddDependencyArgs,
   buildCreateNextAppArgs,
@@ -164,4 +165,32 @@ test("delegateToNextCli scaffolds first and then installs dependencies in the ta
     args: ["install", "--ignore-workspace"],
     options: { cwd: "/tmp/acme-web" },
   })
+})
+
+test("delegateToNextCli does not print the delegation banner", async () => {
+  const infoMessages: string[] = []
+  const originalInfo = logger.info
+
+  logger.info = (...args: unknown[]) => {
+    infoMessages.push(args.join(" "))
+  }
+
+  try {
+    await delegateToNextCli(
+      {
+        packageManager: "pnpm",
+        packageSpec: "create-next-app@16.2.1",
+        targetDir: "/tmp/acme-web",
+        yes: false,
+      },
+      async () => {},
+    )
+  } finally {
+    logger.info = originalInfo
+  }
+
+  assert.equal(
+    infoMessages.includes("正在委托 Next.js 官方 CLI 创建项目..."),
+    false,
+  )
 })

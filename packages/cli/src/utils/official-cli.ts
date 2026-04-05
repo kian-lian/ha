@@ -124,8 +124,6 @@ export async function delegateToNextCli(
   options: CreateNextAppOptions,
   commandRunner: CommandRunner = runCommand,
 ) {
-  // 保留“委托官方脚手架”的能力，方便后续单独挂成某个模板实现。
-  logger.info("正在委托 Next.js 官方 CLI 创建项目...")
   await commandRunner(NPX_COMMAND, buildCreateNextAppArgs(options))
   await installProjectDependencies(
     options.targetDir,
