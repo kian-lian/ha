@@ -272,7 +272,7 @@ test("delegateToNextCli does not print the delegation banner", async () => {
   }
 
   assert.equal(
-    infoMessages.includes("正在委托 Next.js 官方 CLI 创建项目..."),
+    infoMessages.includes("Delegating project creation to the Next.js CLI..."),
     false,
   )
 })
