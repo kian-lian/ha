@@ -9,11 +9,12 @@ import {
   installPackages,
 } from "./official-cli.js"
 
-test("buildCreateNextAppArgs builds a non-interactive create-next-app command", () => {
+test("buildCreateNextAppArgs builds a non-interactive create-next-app command in yes mode", () => {
   const args = buildCreateNextAppArgs({
     packageManager: "pnpm",
     packageSpec: "create-next-app@16.2.1",
     targetDir: "/tmp/acme-web",
+    yes: true,
   })
 
   assert.deepEqual(args, [
@@ -29,6 +30,22 @@ test("buildCreateNextAppArgs builds a non-interactive create-next-app command", 
     "--turbopack",
     "--skip-install",
     "--yes",
+  ])
+})
+
+test("buildCreateNextAppArgs preserves official create-next-app prompts by default", () => {
+  const args = buildCreateNextAppArgs({
+    packageManager: "pnpm",
+    packageSpec: "create-next-app@16.2.1",
+    targetDir: "/tmp/acme-web",
+    yes: false,
+  })
+
+  assert.deepEqual(args, [
+    "create-next-app@16.2.1",
+    "/tmp/acme-web",
+    "--use-pnpm",
+    "--skip-install",
   ])
 })
 
@@ -116,6 +133,7 @@ test("delegateToNextCli scaffolds first and then installs dependencies in the ta
       packageManager: "pnpm",
       packageSpec: "create-next-app@16.2.1",
       targetDir: "/tmp/acme-web",
+      yes: true,
     },
     async (command, args, options) => {
       calls.push({ command, args, options })

@@ -9,6 +9,7 @@ export interface TemplateScaffoldOptions {
   packageManager: PackageManager
   projectName: string
   projectPath: string
+  yes?: boolean
 }
 
 export interface TemplateDefinition {

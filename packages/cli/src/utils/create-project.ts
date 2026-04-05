@@ -75,7 +75,11 @@ export async function createProject(
             : getTemplateDefaultProjectName(templateRegistry, defaultTemplateName)),
         validate: (value: string) => validateProjectName(value),
       },
-    ])
+    ], {
+      onCancel: () => {
+        throw new Error("已取消创建项目")
+      },
+    })
 
     // 交互模式允许“部分参数由命令行传入，剩余部分走提示补全”。
     templateName = templateName ?? answers.template ?? defaultTemplateName
@@ -112,6 +116,7 @@ export async function createProject(
     packageManager,
     projectName,
     projectPath,
+    yes: options.yes,
   })
 
   // 对 React + TypeScript 模板自动补一份 loom.json，用户创建后可以直接执行 add。

@@ -24,7 +24,7 @@ export function copyTemplate(
   targetDir: string,
   options: CopyOptions,
 ) {
-  const templateDir = path.resolve(__dirname, "../../templates", templateName)
+  const templateDir = resolveTemplateDir(templateName)
 
   if (!fs.existsSync(templateDir)) {
     throw new Error(`模板 "${templateName}" 不存在`)
@@ -32,6 +32,33 @@ export function copyTemplate(
 
   fs.mkdirSync(targetDir, { recursive: true })
   copyDir(templateDir, targetDir, options)
+}
+
+export function copyTemplateFiles(
+  templateName: string,
+  targetDir: string,
+  fileNames: string[],
+  options: CopyOptions,
+) {
+  const templateDir = resolveTemplateDir(templateName)
+
+  if (!fs.existsSync(templateDir)) {
+    throw new Error(`模板 "${templateName}" 不存在`)
+  }
+
+  fs.mkdirSync(targetDir, { recursive: true })
+
+  for (const fileName of fileNames) {
+    const srcPath = path.join(templateDir, fileName)
+    const destPath = path.join(targetDir, fileName)
+
+    if (!fs.existsSync(srcPath)) {
+      throw new Error(`模板文件 "${templateName}/${fileName}" 不存在`)
+    }
+
+    fs.mkdirSync(path.dirname(destPath), { recursive: true })
+    copyFile(srcPath, destPath, options)
+  }
 }
 
 /**
@@ -126,15 +153,24 @@ function copyDir(src: string, dest: string, options: CopyOptions) {
       if (SKIP_DIRS.has(entry.name)) continue
       fs.mkdirSync(destPath, { recursive: true })
       copyDir(srcPath, destPath, options)
-    } else if (BINARY_EXTS.has(path.extname(entry.name).toLowerCase())) {
-      // 二进制文件直接复制
-      fs.copyFileSync(srcPath, destPath)
     } else {
-      // 文本文件：读取、替换变量、写入
-      const content = fs
-        .readFileSync(srcPath, "utf-8")
-        .replaceAll("{{projectName}}", options.projectName)
-      fs.writeFileSync(destPath, content)
+      copyFile(srcPath, destPath, options)
     }
   }
+}
+
+function copyFile(srcPath: string, destPath: string, options: CopyOptions) {
+  if (BINARY_EXTS.has(path.extname(srcPath).toLowerCase())) {
+    fs.copyFileSync(srcPath, destPath)
+    return
+  }
+
+  const content = fs
+    .readFileSync(srcPath, "utf-8")
+    .replaceAll("{{projectName}}", options.projectName)
+  fs.writeFileSync(destPath, content)
+}
+
+function resolveTemplateDir(templateName: string) {
+  return path.resolve(__dirname, "../../templates", templateName)
 }

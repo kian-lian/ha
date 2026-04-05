@@ -3,6 +3,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import test from "node:test"
+import prompts from "prompts"
 import { createProject } from "./create-project.js"
 import { createTemplate } from "../templates/create-template.js"
 
@@ -10,6 +11,7 @@ test("createProject uses explicit template and project name without prompts", as
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
   const calls: Array<{
     cwd: string
+    yes?: boolean
     packageManager: string
     projectName: string
     projectPath: string
@@ -48,6 +50,7 @@ test("createProject uses explicit template and project name without prompts", as
     assert.deepEqual(calls, [
       {
         cwd: tmpRoot,
+        yes: true,
         packageManager: "npm",
         projectName: "acme-web",
         projectPath: path.resolve(tmpRoot, "acme-web"),
@@ -61,6 +64,7 @@ test("createProject uses explicit template and project name without prompts", as
 test("createProject uses default template defaults in yes mode", async () => {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
   const calls: Array<{
+    yes?: boolean
     projectName: string
     projectPath: string
   }> = []
@@ -74,6 +78,7 @@ test("createProject uses default template defaults in yes mode", async () => {
       repo: "local:next",
       scaffold: async (options) => {
         calls.push({
+          yes: options.yes,
           projectName: options.projectName,
           projectPath: options.projectPath,
         })
@@ -97,6 +102,7 @@ test("createProject uses default template defaults in yes mode", async () => {
     assert.equal(result.dependenciesInstalled, true)
     assert.deepEqual(calls, [
       {
+        yes: true,
         projectName: "next-app",
         projectPath: path.resolve(tmpRoot, "next-app"),
       },
@@ -198,6 +204,47 @@ test("createProject writes loom.json for scaffolded React TypeScript projects", 
         },
       },
     })
+  } finally {
+    fs.rmSync(tmpRoot, { force: true, recursive: true })
+  }
+})
+
+test("createProject surfaces prompt cancellation as a dedicated error", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
+
+  const registry = {
+    next: createTemplate({
+      name: "next",
+      title: "Next",
+      description: "Next template",
+      defaultProjectName: "next-app",
+      repo: "local:next",
+      scaffold: async () => ({ dependenciesInstalled: true }),
+    }),
+  }
+
+  const prompt = Object.assign(
+    async (...args: Parameters<typeof prompts>) => {
+      const [, options] = args
+      return options?.onCancel?.({} as never, {} as never) as never
+    },
+    prompts,
+  ) as typeof prompts
+
+  try {
+    await assert.rejects(
+      () =>
+        createProject(
+          {
+            cwd: tmpRoot,
+          },
+          {
+            prompt,
+            templateRegistry: registry,
+          },
+        ),
+      /已取消创建项目/,
+    )
   } finally {
     fs.rmSync(tmpRoot, { force: true, recursive: true })
   }

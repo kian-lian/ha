@@ -15,6 +15,7 @@ export interface CreateNextAppOptions {
   packageManager: PackageManager
   packageSpec: string
   targetDir: string
+  yes?: boolean
 }
 
 export type CommandRunner = (
@@ -26,6 +27,15 @@ export type CommandRunner = (
 ) => Promise<void>
 
 export function buildCreateNextAppArgs(options: CreateNextAppOptions): string[] {
+  if (!options.yes) {
+    return [
+      options.packageSpec,
+      options.targetDir,
+      `--use-${options.packageManager}`,
+      "--skip-install",
+    ]
+  }
+
   return [
     options.packageSpec,
     options.targetDir,

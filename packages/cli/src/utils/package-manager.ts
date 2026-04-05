@@ -3,12 +3,21 @@ import path from "node:path"
 
 export type PackageManager = "pnpm" | "npm" | "yarn" | "bun"
 
-const PACKAGE_MANAGERS: PackageManager[] = ["pnpm", "npm", "yarn", "bun"]
+export const PACKAGE_MANAGERS: readonly PackageManager[] = [
+  "pnpm",
+  "npm",
+  "yarn",
+  "bun",
+]
 const LOCK_FILE_CANDIDATES: Record<PackageManager, string[]> = {
   pnpm: ["pnpm-lock.yaml"],
   npm: ["package-lock.json"],
   yarn: ["yarn.lock"],
   bun: ["bun.lock", "bun.lockb"],
+}
+
+export function isPackageManager(value: string): value is PackageManager {
+  return PACKAGE_MANAGERS.includes(value as PackageManager)
 }
 
 export function detectPackageManager(

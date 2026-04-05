@@ -18,6 +18,7 @@ const NEXT_CLI_PREFIX = "next-cli:"
 
 export interface FetchTemplateOptions extends CopyOptions {
   packageManager?: PackageManager
+  yes?: boolean
 }
 
 export interface FetchTemplateResult {
@@ -62,6 +63,7 @@ export async function fetchTemplate(
       packageManager: options.packageManager ?? "pnpm",
       packageSpec,
       targetDir,
+      ...(options.yes !== undefined ? { yes: options.yes } : {}),
     })
     return { dependenciesInstalled: true }
   }
