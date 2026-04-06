@@ -4,10 +4,12 @@ import { logger } from "./logger.js"
 import {
   buildAddDependencyArgs,
   buildCreateNextAppArgs,
+  buildCreateTurboArgs,
   buildCreateViteCommand,
   buildInstallArgs,
   type CommandRunner,
   delegateToNextCli,
+  delegateToTurboCli,
   delegateToViteCli,
   installPackages,
 } from "./official-cli.js"
@@ -84,6 +86,38 @@ test("buildCreateViteCommand builds a non-interactive react-ts scaffold in yes m
       "--no-interactive",
     ],
   })
+})
+
+test("buildCreateTurboArgs preserves the default Turborepo starter in interactive mode", () => {
+  const args = buildCreateTurboArgs({
+    packageManager: "pnpm",
+    targetDir: "/tmp/acme-repo",
+    yes: false,
+  })
+
+  assert.deepEqual(args, [
+    "create-turbo@latest",
+    "/tmp/acme-repo",
+    "--skip-install",
+    "--package-manager",
+    "pnpm",
+  ])
+})
+
+test("buildCreateTurboArgs keeps the same explicit scaffold contract in yes mode", () => {
+  const args = buildCreateTurboArgs({
+    packageManager: "pnpm",
+    targetDir: "/tmp/acme-repo",
+    yes: true,
+  })
+
+  assert.deepEqual(args, [
+    "create-turbo@latest",
+    "/tmp/acme-repo",
+    "--skip-install",
+    "--package-manager",
+    "pnpm",
+  ])
 })
 
 test("buildInstallArgs isolates pnpm installs from the parent workspace", () => {
@@ -246,6 +280,52 @@ test("delegateToViteCli scaffolds first and then installs dependencies in the ta
     command: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
     args: ["install", "--ignore-workspace"],
     options: { cwd: "/tmp/acme-web" },
+  })
+})
+
+test("delegateToTurboCli scaffolds first and then installs dependencies in the target dir", async () => {
+  const calls: Array<{
+    command: string
+    args: string[]
+    options?: {
+      cwd?: string
+    }
+  }> = []
+
+  await delegateToTurboCli(
+    {
+      packageManager: "pnpm",
+      targetDir: "/tmp/acme-repo",
+      yes: true,
+    },
+    async (
+      command: string,
+      args: string[],
+      options?: {
+        cwd?: string
+      },
+    ) => {
+      calls.push({ command, args, options })
+    },
+  )
+
+  assert.equal(calls.length, 2)
+  assert.deepEqual(calls[0], {
+    command: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    args: [
+      "dlx",
+      "create-turbo@latest",
+      "/tmp/acme-repo",
+      "--skip-install",
+      "--package-manager",
+      "pnpm",
+    ],
+    options: undefined,
+  })
+  assert.deepEqual(calls[1], {
+    command: process.platform === "win32" ? "pnpm.cmd" : "pnpm",
+    args: ["install", "--ignore-workspace"],
+    options: { cwd: "/tmp/acme-repo" },
   })
 })
 

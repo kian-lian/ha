@@ -13,6 +13,12 @@ export interface CreateViteAppOptions {
   yes?: boolean
 }
 
+export interface CreateTurboAppOptions {
+  packageManager: PackageManager
+  targetDir: string
+  yes?: boolean
+}
+
 export type CommandRunner = (
   command: string,
   args: string[],
@@ -28,4 +34,3 @@ export interface CommandInvocation {
     cwd?: string
   }
 }
-

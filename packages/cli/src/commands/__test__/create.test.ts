@@ -47,3 +47,35 @@ test("create command forwards the explicit package manager and prints npm run de
   assert.equal(output.includes("  npm run dev"), true)
   assert.equal(output.includes("  npm dev"), false)
 })
+
+test("create command forwards the monorepo template", async () => {
+  const calls: unknown[] = []
+
+  const command = createCreateCommand({
+    createProject: async (options) => {
+      calls.push(options)
+      return {
+        dependenciesInstalled: true,
+        packageManager: "pnpm",
+        projectName: "acme-repo",
+        projectPath: "/tmp/acme-repo",
+        template: "monorepo",
+      }
+    },
+  })
+
+  await command.parseAsync(
+    ["acme-repo", "--template", "monorepo", "--yes", "--package-manager", "pnpm"],
+    { from: "user" },
+  )
+
+  assert.deepEqual(calls, [
+    {
+      cwd: process.cwd(),
+      name: "acme-repo",
+      packageManager: "pnpm",
+      template: "monorepo",
+      yes: true,
+    },
+  ])
+})

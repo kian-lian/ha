@@ -167,6 +167,78 @@ test("createProject uses the selected template default project name in interacti
   }
 })
 
+test("createProject supports selecting the monorepo template in interactive mode", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
+  const calls: Array<{
+    cwd: string
+    packageManager: string
+    projectName: string
+    projectPath: string
+    yes?: boolean
+  }> = []
+
+  const registry = {
+    next: createTemplate({
+      name: "next",
+      title: "Next",
+      description: "Next template",
+      defaultProjectName: "next-app",
+      repo: "local:next",
+      scaffold: async () => ({ dependenciesInstalled: true }),
+    }),
+    monorepo: createTemplate({
+      name: "monorepo",
+      title: "Monorepo",
+      description: "Turborepo starter",
+      defaultProjectName: "my-turborepo",
+      scaffold: async (options) => {
+        calls.push(options)
+        return { dependenciesInstalled: true }
+      },
+    }),
+  }
+
+  const prompt = Object.assign(
+    async (questions: Parameters<typeof prompts>[0]) => {
+      assert.ok(!Array.isArray(questions))
+
+      if (questions.name === "template") {
+        return { template: "monorepo" }
+      }
+
+      return { projectName: questions.initial }
+    },
+    prompts,
+  ) as typeof prompts
+
+  try {
+    const result = await createProject(
+      {
+        cwd: tmpRoot,
+        packageManager: "pnpm",
+      },
+      {
+        prompt,
+        templateRegistry: registry,
+      },
+    )
+
+    assert.equal(result.template, "monorepo")
+    assert.equal(result.projectName, "my-turborepo")
+    assert.deepEqual(calls, [
+      {
+        cwd: tmpRoot,
+        packageManager: "pnpm",
+        projectName: "my-turborepo",
+        projectPath: path.resolve(tmpRoot, "my-turborepo"),
+        yes: undefined,
+      },
+    ])
+  } finally {
+    fs.rmSync(tmpRoot, { force: true, recursive: true })
+  }
+})
+
 test("createProject rejects unknown templates", async () => {
   await assert.rejects(
     () =>

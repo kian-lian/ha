@@ -1,3 +1,4 @@
+import { monorepoTemplate } from "./monorepo.js"
 import { nextTemplate } from "./next.js"
 import type { TemplateDefinition } from "./create-template.js"
 import { viteTemplate } from "./vite.js"
@@ -8,6 +9,7 @@ export type { TemplateDefinition, TemplateScaffoldOptions } from "./create-templ
 export const templates: Record<string, TemplateDefinition> = {
   next: nextTemplate,
   vite: viteTemplate,
+  monorepo: monorepoTemplate,
 }
 
 export type TemplateName = string
