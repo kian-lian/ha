@@ -1,0 +1,18 @@
+[
+  {
+    "name": "next-app",
+    "defaultProjectName": "next-app",
+    "source": {
+      "type": "local",
+      "path": "next-app"
+    }
+  },
+  {
+    "name": "vite-react-ts",
+    "defaultProjectName": "vite-app",
+    "source": {
+      "type": "local",
+      "path": "vite-react-ts"
+    }
+  }
+]

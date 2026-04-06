@@ -13,6 +13,13 @@ import {
   templates,
   type TemplateDefinition,
 } from "../templates/index.js"
+import {
+  createRemoteTemplateDefinition,
+  createTemplateDefinitionFromTemplateLibraryEntry,
+  deriveProjectNameFromRepo,
+  loadTemplateLibraryManifest,
+  type TemplateLibraryEntry,
+} from "../templates/template-library.js"
 import { detectPackageManager, type PackageManager } from "./package-manager.js"
 import { validateProjectName } from "./validate.js"
 
@@ -35,9 +42,21 @@ export interface CreateProjectResult {
 interface CreateProjectDeps {
   prompt?: typeof prompts
   templateRegistry?: Record<string, TemplateDefinition>
+  loadTemplateLibraryManifest?: typeof loadTemplateLibraryManifest
+  createTemplateDefinitionFromTemplateLibraryEntry?: (
+    entry: TemplateLibraryEntry,
+  ) => TemplateDefinition
+  createRemoteTemplateDefinition?: (
+    repo: string,
+    defaultProjectName: string,
+  ) => TemplateDefinition
+  deriveProjectNameFromRepo?: typeof deriveProjectNameFromRepo
 }
 
 const DEFAULT_TEMPLATE = "next"
+const TEMPLATE_LIBRARY_TEMPLATE = "__template_library__"
+const MANUAL_REMOTE_TEMPLATE = "__manual_remote_repo__"
+const FALLBACK_REMOTE_TEMPLATE_PROJECT_NAME = "template-app"
 
 export async function createProject(
   options: CreateProjectOptions,
@@ -45,10 +64,19 @@ export async function createProject(
 ): Promise<CreateProjectResult> {
   const prompt = deps.prompt ?? prompts
   const templateRegistry = deps.templateRegistry ?? templates
+  const loadManifest = deps.loadTemplateLibraryManifest ?? loadTemplateLibraryManifest
+  const createTemplateFromLibraryEntry =
+    deps.createTemplateDefinitionFromTemplateLibraryEntry ??
+    createTemplateDefinitionFromTemplateLibraryEntry
+  const createRemoteTemplateFromRepo =
+    deps.createRemoteTemplateDefinition ?? createRemoteTemplateDefinition
+  const deriveProjectName =
+    deps.deriveProjectNameFromRepo ?? deriveProjectNameFromRepo
   const defaultTemplateName = getDefaultTemplateName(templateRegistry)
 
   let templateName = resolveTemplateName(options.template, templateRegistry)
   let projectName = options.name
+  let resolvedTemplate: TemplateDefinition | undefined
 
   if (options.yes) {
     // 非交互模式下直接回退到默认模板和该模板的默认项目名。
@@ -62,7 +90,19 @@ export async function createProject(
           type: "select",
           name: "template",
           message: "选择模板",
-          choices: getTemplateChoices(templateRegistry),
+          choices: [
+            ...getTemplateChoices(templateRegistry),
+            {
+              title: "模板库",
+              description: "选择已配置模板",
+              value: TEMPLATE_LIBRARY_TEMPLATE,
+            },
+            {
+              title: "远程仓库",
+              description: "手动输入任意远程模板仓库地址",
+              value: MANUAL_REMOTE_TEMPLATE,
+            },
+          ],
           initial: 0,
         },
         {
@@ -72,7 +112,70 @@ export async function createProject(
         },
       )
 
-      templateName = templateAnswer.template ?? defaultTemplateName
+      const selectedTemplate = templateAnswer.template ?? defaultTemplateName
+
+      if (selectedTemplate === TEMPLATE_LIBRARY_TEMPLATE) {
+        const manifestEntries = loadManifest()
+
+        if (manifestEntries.length === 0) {
+          throw new Error("模板库为空")
+        }
+
+        const manifestAnswer = await prompt(
+          {
+            type: "select",
+            name: "templateLibraryEntry",
+            message: "选择模板库模板",
+            choices: manifestEntries.map((entry: TemplateLibraryEntry) => ({
+              title: entry.name,
+              description:
+                entry.source.type === "local" ? "本地模板" : "远程模板",
+              value: entry.name,
+            })),
+          },
+          {
+            onCancel: () => {
+              throw new Error("已取消创建项目")
+            },
+          },
+        )
+
+        const entry = manifestEntries.find(
+          (item: TemplateLibraryEntry) =>
+            item.name === manifestAnswer.templateLibraryEntry,
+        )
+
+        if (!entry) {
+          throw new Error(`未知模板库模板: ${manifestAnswer.templateLibraryEntry}`)
+        }
+
+        resolvedTemplate = createTemplateFromLibraryEntry(entry)
+        templateName = resolvedTemplate.name
+      } else if (selectedTemplate === MANUAL_REMOTE_TEMPLATE) {
+        const remoteRepoAnswer = await prompt(
+          {
+            type: "text",
+            name: "remoteTemplateRepo",
+            message: "远程模板仓库地址:",
+            validate: (value: string) =>
+              value.trim() ? true : "远程模板仓库地址不能为空",
+          },
+          {
+            onCancel: () => {
+              throw new Error("已取消创建项目")
+            },
+          },
+        )
+
+        const repo = remoteRepoAnswer.remoteTemplateRepo.trim()
+        const defaultProjectName =
+          deriveProjectName(repo) ?? FALLBACK_REMOTE_TEMPLATE_PROJECT_NAME
+
+        resolvedTemplate = createRemoteTemplateFromRepo(repo, defaultProjectName)
+        templateName = resolvedTemplate.name
+      } else {
+        templateName = selectedTemplate
+      }
     }
 
     if (!projectName) {
@@ -82,6 +185,7 @@ export async function createProject(
           name: "projectName",
           message: "项目名称:",
           initial:
+            resolvedTemplate?.defaultProjectName ??
             getTemplateDefaultProjectName(templateRegistry, templateName) ??
             getTemplateDefaultProjectName(templateRegistry, defaultTemplateName),
           validate: (value: string) => validateProjectName(value),
@@ -110,7 +214,8 @@ export async function createProject(
     throw new Error(String(projectNameValidation))
   }
 
-  const template = getTemplate(templateName, templateRegistry)
+  const template =
+    resolvedTemplate ?? getTemplate(templateName, templateRegistry)
   if (!template) {
     throw new Error(`未知模板: ${templateName}`)
   }

@@ -6,6 +6,7 @@ import test from "node:test"
 import prompts from "prompts"
 import { createProject } from "./create-project.js"
 import { createTemplate } from "../templates/create-template.js"
+import type { TemplateLibraryEntry } from "../templates/template-library.js"
 
 test("createProject uses explicit template and project name without prompts", async () => {
   const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
@@ -231,6 +232,266 @@ test("createProject supports selecting the monorepo template in interactive mode
         packageManager: "pnpm",
         projectName: "my-turborepo",
         projectPath: path.resolve(tmpRoot, "my-turborepo"),
+        yes: undefined,
+      },
+    ])
+  } finally {
+    fs.rmSync(tmpRoot, { force: true, recursive: true })
+  }
+})
+
+test("createProject supports selecting a local template-library entry in interactive mode", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
+  const calls: Array<{
+    cwd: string
+    packageManager: string
+    projectName: string
+    projectPath: string
+    yes?: boolean
+  }> = []
+
+  const registry = {
+    next: createTemplate({
+      name: "next",
+      title: "Next",
+      description: "Next template",
+      defaultProjectName: "next-app",
+      repo: "local:next",
+      scaffold: async () => ({ dependenciesInstalled: true }),
+    }),
+  }
+
+  const entry: TemplateLibraryEntry = {
+    name: "vite-react-ts",
+    defaultProjectName: "vite-app",
+    source: {
+      type: "local",
+      path: "vite-react-ts",
+    },
+  }
+
+  const prompt = Object.assign(
+    async (questions: Parameters<typeof prompts>[0]) => {
+      assert.ok(!Array.isArray(questions))
+
+      if (questions.name === "template") {
+        return { template: "__template_library__" }
+      }
+
+      if (questions.name === "templateLibraryEntry") {
+        return { templateLibraryEntry: "vite-react-ts" }
+      }
+
+      return { projectName: questions.initial }
+    },
+    prompts,
+  ) as typeof prompts
+
+  try {
+    const result = await createProject(
+      {
+        cwd: tmpRoot,
+        packageManager: "pnpm",
+      },
+      {
+        prompt,
+        templateRegistry: registry,
+        loadTemplateLibraryManifest: () => [entry],
+        createTemplateDefinitionFromTemplateLibraryEntry: (
+          selectedEntry: TemplateLibraryEntry,
+        ) =>
+          createTemplate({
+            name: selectedEntry.name,
+            title: selectedEntry.name,
+            description: selectedEntry.name,
+            defaultProjectName: selectedEntry.defaultProjectName,
+            scaffold: async (options) => {
+              calls.push(options)
+              return { dependenciesInstalled: true }
+            },
+          }),
+      },
+    )
+
+    assert.equal(result.template, "vite-react-ts")
+    assert.equal(result.projectName, "vite-app")
+    assert.deepEqual(calls, [
+      {
+        cwd: tmpRoot,
+        packageManager: "pnpm",
+        projectName: "vite-app",
+        projectPath: path.resolve(tmpRoot, "vite-app"),
+        yes: undefined,
+      },
+    ])
+  } finally {
+    fs.rmSync(tmpRoot, { force: true, recursive: true })
+  }
+})
+
+test("createProject supports selecting a remote template-library entry in interactive mode", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
+  const calls: Array<{
+    cwd: string
+    packageManager: string
+    projectName: string
+    projectPath: string
+    yes?: boolean
+  }> = []
+
+  const registry = {
+    next: createTemplate({
+      name: "next",
+      title: "Next",
+      description: "Next template",
+      defaultProjectName: "next-app",
+      repo: "local:next",
+      scaffold: async () => ({ dependenciesInstalled: true }),
+    }),
+  }
+
+  const entry: TemplateLibraryEntry = {
+    name: "team-next-remote",
+    defaultProjectName: "next-app",
+    source: {
+      type: "remote",
+      repo: "github:your-org/templates/team-next-remote#main",
+    },
+  }
+
+  const prompt = Object.assign(
+    async (questions: Parameters<typeof prompts>[0]) => {
+      assert.ok(!Array.isArray(questions))
+
+      if (questions.name === "template") {
+        return { template: "__template_library__" }
+      }
+
+      if (questions.name === "templateLibraryEntry") {
+        return { templateLibraryEntry: "team-next-remote" }
+      }
+
+      return { projectName: questions.initial }
+    },
+    prompts,
+  ) as typeof prompts
+
+  try {
+    const result = await createProject(
+      {
+        cwd: tmpRoot,
+        packageManager: "pnpm",
+      },
+      {
+        prompt,
+        templateRegistry: registry,
+        loadTemplateLibraryManifest: () => [entry],
+        createTemplateDefinitionFromTemplateLibraryEntry: (
+          selectedEntry: TemplateLibraryEntry,
+        ) =>
+          createTemplate({
+            name: selectedEntry.name,
+            title: selectedEntry.name,
+            description: selectedEntry.name,
+            defaultProjectName: selectedEntry.defaultProjectName,
+            scaffold: async (options) => {
+              calls.push(options)
+              return { dependenciesInstalled: true }
+            },
+          }),
+      },
+    )
+
+    assert.equal(result.template, "team-next-remote")
+    assert.equal(result.projectName, "next-app")
+    assert.deepEqual(calls, [
+      {
+        cwd: tmpRoot,
+        packageManager: "pnpm",
+        projectName: "next-app",
+        projectPath: path.resolve(tmpRoot, "next-app"),
+        yes: undefined,
+      },
+    ])
+  } finally {
+    fs.rmSync(tmpRoot, { force: true, recursive: true })
+  }
+})
+
+test("createProject supports entering an arbitrary remote template repository", async () => {
+  const tmpRoot = fs.mkdtempSync(path.join(os.tmpdir(), "loom-create-project-"))
+  const calls: Array<{
+    cwd: string
+    packageManager: string
+    projectName: string
+    projectPath: string
+    yes?: boolean
+  }> = []
+
+  const registry = {
+    next: createTemplate({
+      name: "next",
+      title: "Next",
+      description: "Next template",
+      defaultProjectName: "next-app",
+      repo: "local:next",
+      scaffold: async () => ({ dependenciesInstalled: true }),
+    }),
+  }
+
+  const repo = "github:your-org/templates/acme-template#main"
+
+  const prompt = Object.assign(
+    async (questions: Parameters<typeof prompts>[0]) => {
+      assert.ok(!Array.isArray(questions))
+
+      if (questions.name === "template") {
+        return { template: "__manual_remote_repo__" }
+      }
+
+      if (questions.name === "remoteTemplateRepo") {
+        return { remoteTemplateRepo: repo }
+      }
+
+      return { projectName: questions.initial }
+    },
+    prompts,
+  ) as typeof prompts
+
+  try {
+    const result = await createProject(
+      {
+        cwd: tmpRoot,
+        packageManager: "pnpm",
+      },
+      {
+        prompt,
+        templateRegistry: registry,
+        createRemoteTemplateDefinition: (
+          selectedRepo: string,
+          defaultProjectName: string,
+        ) =>
+          createTemplate({
+            name: selectedRepo,
+            title: selectedRepo,
+            description: selectedRepo,
+            defaultProjectName,
+            scaffold: async (options) => {
+              calls.push(options)
+              return { dependenciesInstalled: true }
+            },
+          }),
+      },
+    )
+
+    assert.equal(result.template, repo)
+    assert.equal(result.projectName, "acme-template")
+    assert.deepEqual(calls, [
+      {
+        cwd: tmpRoot,
+        packageManager: "pnpm",
+        projectName: "acme-template",
+        projectPath: path.resolve(tmpRoot, "acme-template"),
         yes: undefined,
       },
     ])
