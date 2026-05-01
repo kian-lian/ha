@@ -1,20 +1,24 @@
 {
   "extends": "@loom/typescript-config/nextjs.json",
   "compilerOptions": {
-    "allowImportingTsExtensions": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"],
+      "fumadocs-mdx:collection": ["./.source/index.ts"],
+      "fumadocs-mdx:collection/*": ["./.source/*"],
+      "fumadocs-mdx:collections": ["./.source/index.ts"],
+      "fumadocs-mdx:collections/*": ["./.source/*"]
+    },
     "strictNullChecks": true
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    "**/*.mdx",
     "next-env.d.ts",
-    "next.config.js",
-    ".next/types/**/*.ts"
+    "next.config.mjs",
+    ".next/types/**/*.ts",
+    ".source/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

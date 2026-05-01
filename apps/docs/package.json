@@ -4,14 +4,21 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3001",
+    "predev": "node ./scripts/command-reference.mjs",
+    "dev": "next dev --port 3002",
+    "prebuild": "node ./scripts/command-reference.mjs",
     "build": "next build",
-    "start": "next start",
+    "start": "next start --port 3002",
     "lint": "eslint --max-warnings 0",
-    "check-types": "next typegen && tsc --noEmit"
+    "check-types": "next typegen && tsc --noEmit",
+    "test": "node --test scripts/*.test.mjs",
+    "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
-    "@loom/ui": "workspace:*",
+    "@orama/tokenizers": "^1.2.5",
+    "fumadocs-core": "^15.6.0",
+    "fumadocs-mdx": "^11.7.0",
+    "fumadocs-ui": "^15.6.0",
     "next": "16.2.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
@@ -19,10 +26,13 @@
   "devDependencies": {
     "@loom/eslint-config": "workspace:*",
     "@loom/typescript-config": "workspace:*",
+    "@tailwindcss/postcss": "^4.1.14",
+    "@types/mdx": "^2.0.13",
     "@types/node": "^22.15.3",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
     "eslint": "^9.39.1",
+    "tailwindcss": "^4.1.14",
     "typescript": "5.9.2"
   }
 }
